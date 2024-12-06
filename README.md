@@ -8,11 +8,11 @@ This script has support for **[Nopecha](https://nopecha.com/)**!
 	<tr>
 		<td width="600">
 			<img src="https://github.com/user-attachments/assets/61d3069d-fb69-402c-a20b-ed32a99045c3" height="100%">
-      <p> Sign-up Automation </p>
+      			<p> Sign-up Automation </p>
 		</td>
 		<td width="600">
-			<img src="https://github.com/user-attachments/assets/fbfb2bc1-2611-4682-b5af-38698d9ef7a7" height="100%">
-      <p> Username and password generation </p>
+			<img src="https://github.com/user-attachments/assets/0648f886-e13f-40d2-a8ab-e12be1039a9e" height="100%">
+      			<p> Username and password generation </p>
 		</td>
 	</tr>
 </table>
