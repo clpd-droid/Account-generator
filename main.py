@@ -20,8 +20,6 @@ from random import choice as randchoice, randint, randrange
 from time import sleep
 from colorama import Fore
 
-from pystyle import Center
-
 import requests
 import string
 import os
@@ -217,7 +215,7 @@ def SetNopechaKey(driver, Key):
     driver.get(f"https://nopecha.com/setup#{Key}")
 
 def ColoredPrint(Color, Text, End="\n"):
-    print(Center.XCenter(f"{Color}{Text}{Fore.RESET}"), end=End)
+    print(f"{Color}{Text}{Fore.RESET}", end=End)
 
 def Error(Text, End=None):
     ColoredPrint(Fore.LIGHTRED_EX, f"Error: {Fore.LIGHTCYAN_EX}{Text}", End)
@@ -227,6 +225,13 @@ def Info(Text, End=None):
     
 def Success(Text, End=None):
     ColoredPrint(Fore.GREEN, Text, End)
+
+def PrintUserAndPass(Username, Password, Gender):
+    print(f"Username: {Fore.GREEN}{Username}{Fore.RESET} Password: {Fore.RED}{Password}{Fore.RESET} Gender: {Fore.MAGENTA}{Gender}{Fore.RESET}")
+
+def ConsoleExample():
+    for i in range(1, 50):
+        PrintUserAndPass(MakeUsername(), MakePassword(), "Male")
 
 def Timeout(Seconds):
     Remaining = Seconds
@@ -393,7 +398,7 @@ def CheckForError(driver):
     return False
 
 def FollowDepso(driver):
-    Profile_Url = "https://www.roblox.com/users/0000/profile"
+    Profile_Url = "https://www.roblox.com/users/1223447/profile"
     driver.get(Profile_Url)
 
     #ClickButton(driver, Accept_All, True)
@@ -471,7 +476,7 @@ def GenerateAccount():
             return
 
     # Success!
-    Success(f"{Username} : {Password} : {Gender}")
+    PrintUserAndPass(Username, Password, Gender)
 
     # Append account creation details to file
     Cookie = driver.get_cookie(".ROBLOSECURITY")["value"]
@@ -485,6 +490,9 @@ if __name__ == "__main__":
     FlushConsole()
     Info("Depso's Roblox account generator")
 
+    ConsoleExample()
+    exit(1)
+
     # Creation loop
     for i in range(1, To_Create_Count):
         try:
@@ -494,7 +502,7 @@ if __name__ == "__main__":
             Browser = None
             Error(e)
 
-    Info("Job finished! Press Enter To Exit...")
+    Info("Job finished! Press enter to exit...")
     input()
     
-    exit()
+    exit(1)
