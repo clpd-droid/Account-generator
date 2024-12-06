@@ -25,6 +25,8 @@ import string
 import os
 
 ###### Config
+Accounts_File = "accounts.txt"
+Cookies_File = "cookies.txt"
 To_Create_Count = 5
 Request_Limit_Wait_Minutes = 50
 
@@ -48,9 +50,10 @@ Use_Username_Base = False
 Username_Base = "ilovedepso_"
 
 # Website buttons
-Accept_All = '//button[contains(@class, "btn-cta-lg")]'
+Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]'
+Cookie_Banner = '//*[@id="cookie-banner-wrapper"]'
 Signup_Button = '//*[@id="signup-button"]'
-General_Error = "//div[@id='GeneralErrorText']"
+General_Error = "//div[@id='GeneralErrorText']" 
 
 Username_Box = '//*[@id="signup-username"]'
 Password_Box = '//*[@id="signup-password"]'
@@ -263,10 +266,10 @@ def RequestLimitWait():
     Timeout(Seconds)
 
 def LogDetails(Username, Password, Cookie):
-    with open("accounts.txt", "a+") as f:
+    with open(Accounts_File, "a+") as f:
         f.write(f"{Username} : {Password}\n")
 
-    with open("cookies.txt", "a+") as f:
+    with open(Cookies_File, "a+") as f:
         f.write(f"{Cookie}\n")
 
 def SolveCapture(driver):
@@ -331,7 +334,7 @@ def CaptureCheck(driver):
 
 def SelectGender(driver):
     Gender = randint(1,3)
-    Gender_Name = "No gender"
+    Gender_Name = "None"
 
     if Gender == 1: # Male
         ClickButton(driver, Male_Gender)
@@ -443,6 +446,15 @@ def WaitForCreation(driver, Timeout):
 
     return Created
 
+def HasCookiePrompt(driver):
+    try:
+        Button = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, Cookie_Banner))
+        )
+        return True
+    except TimeoutException:
+        return False
+
 def GenerateAccount():
     # Initilase web driver
     driver = Browser
@@ -452,7 +464,8 @@ def GenerateAccount():
     driver.get("https://www.roblox.com")
 
     # Accept all cookes (without your consent muhahaha... or not)
-    ClickButton(driver, Accept_All, True)
+    if HasCookiePrompt(driver):
+        ClickButton(driver, Accept_All, True)
     
     # Set birthday
     SetBirthDay(driver)
