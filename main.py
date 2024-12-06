@@ -48,7 +48,7 @@ Use_Username_Base = False
 Username_Base = "ilovedepso_"
 
 # Website buttons
-Accept_All = "//button[contains(text(),'Accept All')]"
+Accept_All = '//button[contains(@class, "btn-cta-lg")]'
 Signup_Button = '//*[@id="signup-button"]'
 General_Error = "//div[@id='GeneralErrorText']"
 
