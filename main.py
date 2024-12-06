@@ -214,20 +214,32 @@ def SetNopechaKey(driver, Key):
     sleep(1)
     driver.get(f"https://nopecha.com/setup#{Key}")
 
-def ColoredPrint(Color, Text, End="\n"):
+def ColoredPrint(Text="", Color=Fore.WHITE, End="\n"):
     print(f"{Color}{Text}{Fore.RESET}", end=End)
 
+def ColoredPrints(Seperator, Lines):
+    for Line in Lines:
+        ColoredPrint(*Line, End=Seperator)
+    print()
+
 def Error(Text, End=None):
-    ColoredPrint(Fore.LIGHTRED_EX, f"Error: {Fore.LIGHTCYAN_EX}{Text}", End)
+    ColoredPrint(f"Error: {Fore.LIGHTCYAN_EX}{Text}", Fore.LIGHTRED_EX, End)
 
 def Info(Text, End=None):
-    ColoredPrint(Fore.LIGHTYELLOW_EX, Text, End)
+    ColoredPrint(Text, Fore.LIGHTYELLOW_EX, End)
     
 def Success(Text, End=None):
-    ColoredPrint(Fore.GREEN, Text, End)
+    ColoredPrint(Text, Fore.GREEN, End)
 
 def PrintUserAndPass(Username, Password, Gender):
-    print(f"Username: {Fore.GREEN}{Username}{Fore.RESET} Password: {Fore.RED}{Password}{Fore.RESET} Gender: {Fore.MAGENTA}{Gender}{Fore.RESET}")
+    ColoredPrints(" ", [
+        ("Username:", Fore.WHITE),
+        (Username, Fore.GREEN),
+        ("Password:", Fore.WHITE),
+        (Password, Fore.RED),
+        ("Gender:", Fore.WHITE),
+        (Gender, Fore.MAGENTA)
+    ])
 
 def ConsoleExample():
     for i in range(1, 50):
@@ -490,8 +502,8 @@ if __name__ == "__main__":
     FlushConsole()
     Info("Depso's Roblox account generator")
 
-    #ConsoleExample()
-    #exit(1)
+    ConsoleExample()
+    exit(1)
 
     # Creation loop
     for i in range(1, To_Create_Count):
