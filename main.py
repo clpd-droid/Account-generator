@@ -490,8 +490,8 @@ if __name__ == "__main__":
     FlushConsole()
     Info("Depso's Roblox account generator")
 
-    ConsoleExample()
-    exit(1)
+    #ConsoleExample()
+    #exit(1)
 
     # Creation loop
     for i in range(1, To_Create_Count):
