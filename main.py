@@ -13,7 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.keys import Keys
 
 from random import choice as randchoice, randint, randrange
@@ -510,11 +510,14 @@ if __name__ == "__main__":
         try:
             Browser = CheckDriver(Browser)
             GenerateAccount()
+        except WebDriverException:
+            Info("Window closed! Now exiting...")
+            break
         except Exception as e:
             Browser = None
             Error(e)
 
-    Info("Job finished! Press enter to exit...")
+    Success("Job finished! Press enter to exit...")
     input()
     
     exit(1)
