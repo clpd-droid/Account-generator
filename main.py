@@ -156,9 +156,7 @@ def SelectDropdown(driver, Xpath, Min, Max):
     Ending = "/option[{0}]"
     Option_Xpath = f"{Xpath}{Ending.format(Index)}"
 
-    Dropdown = driver.find_element("xpath", Xpath)
-    Dropdown.click()
-
+    ClickButton(driver, Xpath)
     ClickButton(driver, Option_Xpath)
 
 def SetBirthDay(driver):
@@ -289,8 +287,9 @@ def SolveCapture(driver):
 
     # Solve methods
     if "Pick any square" in Method:
-        Square = driver.find_element(By.CSS_SELECTOR, f'[aria-label="Image {randint(1,6)} of 6."]')
-        Square.click()
+        #Square = driver.find_element(By.CSS_SELECTOR, f'[aria-label="Image {randint(1,6)} of 6."]')
+        #Square.click()
+        ClickButton(driver, f"//*[@aria-label='Image {randint(1,6)} of 6.']")
     else:
         Error("Unknown capture method!")
         return True
