@@ -1,0 +1,25 @@
+Core:
+  Accounts_File: "accounts.txt"
+  Cookies_File: "cookies.txt"
+  Accounts_To_Create: 5
+  Request_Limit_Wait_Minutes: 50
+  MacOS: False # (REQUIRED)
+  Has_Cookies_Prompt: True
+
+Browser:
+  Headless: False
+  Use_Proxy: False
+  Proxy: "http://1.1.1.1/"
+
+Capture:
+  NOPECHA_KEY: "-------"
+  Use_Nopecha: False
+  Allow_Manual_Completion: True
+  Capture_Timeout_Minutes: 4
+
+Accounts:
+  Random_Password: True
+  Fixed_Password: "depsoisgreat"
+
+  Use_Username_Base: False # Otherwise uses username generation
+  Username_Base: "ilovedepso_"

@@ -23,31 +23,17 @@ from colorama import Fore
 import requests
 import string
 import os
+import yaml
 
-###### Config
-Accounts_File = "accounts.txt"
-Cookies_File = "cookies.txt"
-To_Create_Count = 5
-Request_Limit_Wait_Minutes = 50
+# Load configuation file
+with open('config.yml', 'r') as f:
+    Config = yaml.safe_load(f)
 
-# Browser config
-MacOS = False # (REQUIRED)
-Headless = False
-Use_Proxy = False
-Proxy = "http://1.1.1.1/"
-
-# Fun-Capture config
-NOPECHA_KEY = "-------"
-Use_Nopecha = False
-Allow_Manual_Completion = True
-Capture_Timeout_Minutes = 4
-
-# Account details
-Random_Password = True
-Fixed_Password = "depsoisgreat"
-
-Use_Username_Base = False
-Username_Base = "ilovedepso_"
+# Unpack Config
+Core = Config["Core"]
+Browser = Config["Browser"]
+Capture = Config["Capture"]
+Accounts = Config["Accounts"]
 
 # Website buttons
 Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]'
@@ -79,19 +65,25 @@ Follow_User = "//a[contains(text(),'Follow') and @role='menuitem']"
 Adjectives = open('extra/adjectives.txt',"r").readlines()
 Nouns = open('extra/nouns.txt',"r").readlines()
 
-Browser = None
+BrowserClient = None
 
 def RandomString(Min, Max):
     Characters = string.ascii_letters + string.digits
     return ''.join(randchoice(Characters) for _ in range(randint(Min, Max)))
 
 def MakePassword():
+    Random_Password = Accounts["Random_Password"]
+    Fixed_Password = Accounts["Fixed_Password"]
+
     if Random_Password:
         return RandomString(10, 20)
     else:
         return Fixed_Password
 
 def MakeUsername():
+    Use_Username_Base = Accounts["Use_Username_Base"]
+    Username_Base = Accounts["Username_Base"]
+
     if Use_Username_Base:
         # Generate an ending to stop conflicting usernames
         Max = 20 - len(Username_Base)
@@ -164,10 +156,11 @@ def SetBirthDay(driver):
     SelectDropdown(driver, Day_Dropdown, 1, 20)
     SelectDropdown(driver, Year_Dropdown, 24, 37)
 
-def CreateDriver():    
-    parameters = {
-        "source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
-    }
+def CreateOptions():
+    Headless = Browser["Headless"]
+    Use_Proxy = Browser["Use_Proxy"]
+    Proxy_Address = Browser["Proxy"]
+    Use_Nopecha = Capture["Use_Nopecha"]
 
     # Add browser options
     options = Options()
@@ -176,7 +169,7 @@ def CreateDriver():
         options.add_argument("--headless")
     
     if Use_Proxy:
-        options.add_argument(f"--proxy-server={Proxy}")
+        options.add_argument(f"--proxy-server={Proxy_Address}")
 
     # Install nopecha extention
     Extention_Path = "extra/ext.crx"
@@ -188,15 +181,24 @@ def CreateDriver():
         options.add_extension(Extention_Path)
 
     # Addional options
-    #options.add_argument("user-agent=")
     options.add_argument("log-level=3")
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     options.add_argument('--incognito')
     options.add_argument('--no-sandbox') 
     options.add_argument('--disable-dev-shm-usage')
 
-    driver = webdriver.Edge(options=options)
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", parameters)
+def CreateDriver():    
+    Options = CreateOptions()
+    NOPECHA_KEY = Capture["NOPECHA_KEY"]
+    Use_Nopecha = Capture["Use_Nopecha"]
+
+    Parameters = {
+        "source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
+    }
+
+    # Create driver instance
+    driver = webdriver.Edge(options = Options)
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", Parameters)
 
     # Set Nopecha key
     if Use_Nopecha:
@@ -258,12 +260,16 @@ def Timeout(Seconds):
         sleep(1)
 
 def RequestLimitWait():
-    Seconds = Request_Limit_Wait_Minutes / 60
+    Wait_Minutes = Core["Request_Limit_Wait_Minutes"]
+    Seconds = Wait_Minutes / 60
 
     Error("Rate Limit!")
     Timeout(Seconds)
 
 def LogDetails(Username, Password, Cookie):
+    Accounts_File = Accounts["Accounts_File"]
+    Cookies_File = Accounts["Cookies_File"]
+
     with open(Accounts_File, "a+") as f:
         f.write(f"{Username} : {Password}\n")
 
@@ -282,6 +288,7 @@ def SolveCapture(driver):
     ClickButton(driver, Verify_Button)
     sleep(1)
 
+    # Get capture method name
     Method = driver.find_element(By.XPATH, Method_Title).text
     Info(f"Capture method: {Method}")
 
@@ -303,7 +310,8 @@ def SolveCapture(driver):
     return False
 
 def CaptureCheck(driver):
-    Minutes = Capture_Timeout_Minutes
+    Manual = Capture["Allow_Manual_Completion"]
+    Minutes = Capture["Capture_Timeout_Minutes"]
     Seconds = 60 * Minutes
 
     # Attempt automatic solve
@@ -318,7 +326,7 @@ def CaptureCheck(driver):
         pass
 
     # Prompt user to solve capture if enabled
-    if Allow_Manual_Completion:
+    if Manual:
         Info(f"Waiting for manual capture competion! ({Minutes}) minutes maxium!")
 
         Completed = WaitForCreation(driver, Seconds)
@@ -353,6 +361,7 @@ def EnterValue(driver, Xpath, Text, Clear=False):
     TextBox.send_keys(Text)
 
 def ClearValue(Element):
+    MacOS = Core["MacOS"]
     Control = Keys.CONTROL
 
     # COMMAND instead of CONTROL for Mac
@@ -411,20 +420,26 @@ def CheckForError(driver):
 
     return False
 
-def FollowDepso(driver):
-    Profile_Url = "https://www.roblox.com/users/1223447/profile"
+def FollowUser(driver, UserId):
+    Profile_Url = f"https://www.roblox.com/users/{UserId}/profile"
     driver.get(Profile_Url)
 
-    #ClickButton(driver, Accept_All, True)
+    # Accept cookies prompt (Again??!)
+    if HasCookiePrompt(driver):
+        ClickButton(driver, Accept_All, True)
 
+    # Follow user
     ClickButton(driver, Profile_Options)
     sleep(1)
     ClickButton(driver, Follow_User)
 
+    # Check for capture prompts
     sleep(5)
     CaptureCheck(driver)
 
 def ProblemCheck(driver):
+    Use_Nopecha = Capture["Use_Nopecha"]
+
     # Capture test
     if not Use_Nopecha:
         Capture_Success = CaptureCheck(driver)
@@ -446,17 +461,27 @@ def WaitForCreation(driver, Timeout):
     return Created
 
 def HasCookiePrompt(driver):
+    Has_Cookies_Prompt = Core["Has_Cookies_Prompt"]
+    
+    if Has_Cookies_Prompt: 
+        return True
+    
+    # Some people don't edit the configuation and complain it doesn't work
+    # This is needed to prevent my inbox spam of complaints sadly
     try:
-        Button = WebDriverWait(driver, 10).until(
+        Banner = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.XPATH, Cookie_Banner))
         )
-        return True
-    except TimeoutException:
+        Child = Banner.find_element(By.XPATH, "./*")
+
+        if Child:
+            return True
+    except:
         return False
 
 def GenerateAccount():
     # Initilase web driver
-    driver = Browser
+    driver = BrowserClient
     ResetDriver(driver)
 
     # Goto signup page
@@ -510,26 +535,32 @@ def GenerateAccount():
 
     return Username, Password, Cookie
 
-if __name__ == "__main__":
+def Banner():
     FlushConsole()
     Info("Depso's Roblox account generator")
 
-    #ConsoleExample()
-    #exit(1)
+def Generation():
+    global BrowserClient
+    Create_Count = Core["Accounts_To_Create"]
 
     # Creation loop
-    for i in range(1, To_Create_Count):
-        try:
-            Browser = CheckDriver(Browser)
+    for i in range(1, Create_Count):
+        #try:
+            BrowserClient = CheckDriver(BrowserClient)
             GenerateAccount()
-        except WebDriverException:
-            Info("Window closed! Now exiting...")
-            break
-        except Exception as e:
-            Browser = None
-            Error(e)
+        # except WebDriverException:
+        #     Info("Window closed! Now exiting...")
+        #     break
+        # except Exception as e:
+        #     Browser = None
+        #     Error(e)
 
-    Success("Job finished! Press enter to exit...")
+    Success("Job finished!")
+
+if __name__ == "__main__":
+    Banner()
+    Generation()
+
+    print("Press enter to exit...")
     input()
-    
     exit(1)
