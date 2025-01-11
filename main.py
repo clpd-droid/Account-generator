@@ -138,6 +138,7 @@ def CreateOptions():
     Headless = Browser["Headless"]
     Use_Proxy = Browser["Use_Proxy"]
     Proxy_Address = Browser["Proxy"]
+    Language = Browser["Language"]
     Use_Nopecha = Capture["Use_Nopecha"]
 
     # Add browser options
@@ -159,11 +160,14 @@ def CreateOptions():
         options.add_extension(Extention_Path)
 
     # Addional options
-    options.add_argument("log-level=3")
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    options.add_argument(f"--lang={Language}")
+    options.add_argument("log-level=3")
     options.add_argument('--incognito')
     options.add_argument('--no-sandbox') 
     options.add_argument('--disable-dev-shm-usage')
+
+    return options
 
 def CreateDriver():    
     Options = CreateOptions()

@@ -10,6 +10,7 @@ Browser:
   Headless: False
   Use_Proxy: False
   Proxy: "http://1.1.1.1/"
+  Language: "en-US" # ISO 639 language code
 
 Capture:
   NOPECHA_KEY: "-------"
@@ -29,7 +30,7 @@ Webhook:
   Webhook_Urls: [
     "https://discord.com/api/webhooks/....",
   ]
-  
+
   Embed:
     Title: "Account generated!"
     Description: ""
