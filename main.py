@@ -20,8 +20,10 @@ from random import choice as randchoice, randint, randrange
 from time import sleep
 from colorama import Fore
 
+from modules import Usernames
+from modules import Webhooks
+
 import requests
-import string
 import os
 import yaml
 
@@ -34,6 +36,9 @@ Core = Config["Core"]
 Browser = Config["Browser"]
 Capture = Config["Capture"]
 Accounts = Config["Accounts"]
+Webhook = Config["Webhook"]
+
+Webhooks.LoadConfig(Webhook)
 
 # Website buttons
 Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]'
@@ -61,61 +66,34 @@ Method_Title = '//*[contains(@class, "sc-1io4bok-0") and contains(@class, "text"
 Profile_Options = "//button[@id='popover-link']"
 Follow_User = "//a[contains(text(),'Follow') and @role='menuitem']"
 
-# Data lists
-Adjectives = open('extra/adjectives.txt',"r").readlines()
-Nouns = open('extra/nouns.txt',"r").readlines()
-
 BrowserClient = None
-
-def RandomString(Min, Max):
-    Characters = string.ascii_letters + string.digits
-    return ''.join(randchoice(Characters) for _ in range(randint(Min, Max)))
 
 def MakePassword():
     Random_Password = Accounts["Random_Password"]
     Fixed_Password = Accounts["Fixed_Password"]
 
     if Random_Password:
-        return RandomString(10, 20)
+        return Usernames.RandomString(10, 20)
     else:
         return Fixed_Password
 
 def MakeUsername():
     Use_Username_Base = Accounts["Use_Username_Base"]
     Username_Base = Accounts["Username_Base"]
+    Username = None
 
-    if Use_Username_Base:
-        # Generate an ending to stop conflicting usernames
-        Max = 20 - len(Username_Base)
-        Ending = RandomString(5, Max)
+    while True:
+        # Generate username string
+        if Use_Username_Base:
+            Username = Usernames.MakeRandomUsername(Username_Base)
+        else:
+            Username = Usernames.MakeWordedUsername()
 
-        return f"{Username_Base}{Ending}"
+        # Check if username is approved by Roblox
+        if Usernames.UsernameAllowed(Username):
+            break
 
-    # Compile a some-what realistic username
-    Adjective = randchoice(Adjectives)
-    Noun = randchoice(Nouns)
-    Number = ""
-
-    # Capitalization
-    if randint(1,2) == 2:
-        Adjective = Adjective.capitalize()
-    if randint(1,2) == 2:
-        Noun = Noun.capitalize()
-    if randint(1,2) == 2:
-        Number = str(randrange(68))
-
-    # Word order
-    Type = randint(1,3)
-    if Type == 1:
-        Username = Adjective + Number + Noun 
-    if Type == 2:
-        Username = Adjective + Noun + Number
-    if Type == 3:
-        Username = Noun + Adjective + Number
-    if Type == 4:
-        Username = Adjective + "_" + Noun + Number
-
-    return str(Username).replace("\n","").replace("\r","")
+    return Username
 
 def FlushConsole():
     Is_Windows = os.name == 'nt'
@@ -269,10 +247,20 @@ def RequestLimitWait():
 def LogDetails(Username, Password, Cookie):
     Accounts_File = Accounts["Accounts_File"]
     Cookies_File = Accounts["Cookies_File"]
+    Use_Webhooks = Webhooks["Use_Webhooks"]
 
+    # Send webhook request
+    if Use_Webhooks:
+        Webhooks.SendWebhook({
+            "Username": "Bozo",
+            "Password": "Bozo zozo"
+        })
+
+    # Write password and username for the generated account
     with open(Accounts_File, "a+") as f:
         f.write(f"{Username} : {Password}\n")
 
+    # Write cookie for the generated account
     with open(Cookies_File, "a+") as f:
         f.write(f"{Cookie}\n")
 
@@ -531,7 +519,7 @@ def GenerateAccount():
     Cookie = driver.get_cookie(".ROBLOSECURITY")["value"]
     LogDetails(Username, Password, Cookie)
 
-    #FollowDepso(driver)
+    #FollowUser(driver, 0)
 
     return Username, Password, Cookie
 
@@ -545,15 +533,15 @@ def Generation():
 
     # Creation loop
     for i in range(1, Create_Count):
-        #try:
+        try:
             BrowserClient = CheckDriver(BrowserClient)
             GenerateAccount()
-        # except WebDriverException:
-        #     Info("Window closed! Now exiting...")
-        #     break
-        # except Exception as e:
-        #     Browser = None
-        #     Error(e)
+        except WebDriverException:
+            Info("Window closed! Now exiting...")
+            break
+        except Exception as e:
+            BrowserClient = None
+            Error(e)
 
     Success("Job finished!")
 

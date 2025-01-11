@@ -23,3 +23,15 @@ Accounts:
 
   Use_Username_Base: False # Otherwise uses username generation
   Username_Base: "ilovedepso_"
+
+Webhook:
+  Use_Webhooks: False
+  Webhook_Urls: [
+    "https://discord.com/api/webhooks/....",
+  ]
+  
+  Embed:
+    Title: "Account generated!"
+    Description: ""
+    Color: "E4824C" # HEX color
+    Inline: False
