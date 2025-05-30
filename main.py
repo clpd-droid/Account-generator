@@ -454,22 +454,23 @@ def WaitForCreation(driver, Timeout):
 
 def HasCookiePrompt(driver):
     Has_Cookies_Prompt = Core["Has_Cookies_Prompt"]
+    return Has_Cookies_Prompt
     
-    if Has_Cookies_Prompt: 
-        return True
+    # if Has_Cookies_Prompt: 
+    #     return True
     
-    # Some people don't edit the configuation and complain it doesn't work
-    # This is needed to prevent my inbox spam of complaints sadly
-    try:
-        Banner = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, Cookie_Banner))
-        )
-        Child = Banner.find_element(By.XPATH, "./*")
+    # # Some people don't edit the configuation and complain it doesn't work
+    # # This is needed to prevent my inbox spam of complaints sadly
+    # try:
+    #     Banner = WebDriverWait(driver, 10).until(
+    #         EC.presence_of_element_located((By.XPATH, Cookie_Banner))
+    #     )
+    #     Child = Banner.find_element(By.XPATH, "./*")
 
-        if Child:
-            return True
-    except:
-        return False
+    #     if Child:
+    #         return True
+    # except:
+    #     return False
 
 def GenerateAccount():
     # Initilase web driver
