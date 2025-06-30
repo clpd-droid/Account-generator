@@ -257,8 +257,8 @@ def LogDetails(Username, Password, Cookie):
     # Send webhook request
     if Use_Webhooks:
         Webhooks.SendWebhook({
-            "Username": "Bozo",
-            "Password": "Bozo zozo"
+            "Username": Username,
+            "Password": Password
         })
 
     # Write password and username for the generated account
