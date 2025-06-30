@@ -4,7 +4,7 @@ Core:
   Accounts_To_Create: 5
   Request_Limit_Wait_Minutes: 50
   MacOS: False # (REQUIRED)
-  Has_Cookies_Prompt: True
+  Has_Cookies_Prompt: True # (REQUIRED) Only set to true if you live in europe
 
 Browser:
   Headless: False
