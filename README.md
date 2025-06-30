@@ -3,6 +3,10 @@
 
 This script has support for **[Nopecha](https://nopecha.com/)**!
 
+# Notices❗
+- Please edit the configuration before use! -> `config.yaml`
+- Please mention me when integrating this in your projects - depso
+
 ## Screenshots 🖼️
 <table>
 	<tr>
@@ -16,10 +20,6 @@ This script has support for **[Nopecha](https://nopecha.com/)**!
 		</td>
 	</tr>
 </table>
-
-# Notices❗
-- Be sure to edit the configuation inside `config.yaml`!
-- Please mention me when integrating this in your projects - depso
 
 # Requirements
 - Python
