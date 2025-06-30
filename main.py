@@ -226,6 +226,7 @@ def PrintUserAndPass(Username, Password, Gender):
         (Gender, Fore.MAGENTA)
     ])
 
+# Makes a list of fake accounts used for screenshots, you're welcome
 def ConsoleExample():
     for i in range(1, 50):
         PrintUserAndPass(MakeUsername(), MakePassword(), "Male")
@@ -251,7 +252,7 @@ def RequestLimitWait():
 def LogDetails(Username, Password, Cookie):
     Accounts_File = Core["Accounts_File"]
     Cookies_File = Core["Cookies_File"]
-    Use_Webhooks = Webhooks["Use_Webhooks"]
+    Use_Webhooks = Webhook["Use_Webhooks"]
 
     # Send webhook request
     if Use_Webhooks:
@@ -261,13 +262,16 @@ def LogDetails(Username, Password, Cookie):
         })
 
     # Write password and username for the generated account
-    with open(Accounts_File, "a+") as f:
+    with open(Accounts_File, "a") as f:
         f.write(f"{Username} : {Password}\n")
+        f.close()
 
     # Write cookie for the generated account
-    with open(Cookies_File, "a+") as f:
+    with open(Cookies_File, "a") as f:
         f.write(f"{Cookie}\n")
+        f.close()
 
+# This only solves one type of captura
 def SolveCapture(driver):
     # Select correct iframe
     Arkose = driver.find_element(By.ID, Arkose_iFrame)
@@ -290,7 +294,7 @@ def SolveCapture(driver):
         #Square.click()
         ClickButton(driver, f"//*[@aria-label='Image {randint(1,6)} of 6.']")
     else:
-        Error("Unknown capture method!")
+        Error("No solve for this capture method!")
         return True
     
     #key-frame-image
@@ -309,7 +313,6 @@ def CaptureCheck(driver):
     # Attempt automatic solve
     try:
         Failed = SolveCapture(driver)
-
         if not Failed:
             Info("Capture solved!")
             return True
@@ -365,14 +368,12 @@ def ClearValue(Element):
 
 def EnterUsername(driver):
     Username = MakeUsername()
-
     EnterValue(driver, Username_Box, Username, True)
 
     return Username
 
 def EnterPassword(driver):
     Password = MakePassword()
-
     EnterValue(driver, Password_Box, Password, True)
 
     return Password
@@ -455,22 +456,6 @@ def WaitForCreation(driver, Timeout):
 def HasCookiePrompt(driver):
     Has_Cookies_Prompt = Core["Has_Cookies_Prompt"]
     return Has_Cookies_Prompt
-    
-    # if Has_Cookies_Prompt: 
-    #     return True
-    
-    # # Some people don't edit the configuation and complain it doesn't work
-    # # This is needed to prevent my inbox spam of complaints sadly
-    # try:
-    #     Banner = WebDriverWait(driver, 10).until(
-    #         EC.presence_of_element_located((By.XPATH, Cookie_Banner))
-    #     )
-    #     Child = Banner.find_element(By.XPATH, "./*")
-
-    #     if Child:
-    #         return True
-    # except:
-    #     return False
 
 def GenerateAccount():
     # Initilase web driver
@@ -500,11 +485,10 @@ def GenerateAccount():
     ClickButton(driver, Signup_Button)
 
     # Wait for successful creation
-    Created = WaitForCreation(driver, 5)
+    Created = WaitForCreation(driver, 8)
     
     if not Created:
         Info("Creation timeout.. Checking for problems")
-
         Resolved = ProblemCheck(driver)
 
         if not Resolved:
