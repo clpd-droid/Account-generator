@@ -249,8 +249,8 @@ def RequestLimitWait():
     Timeout(Seconds)
 
 def LogDetails(Username, Password, Cookie):
-    Accounts_File = Accounts["Accounts_File"]
-    Cookies_File = Accounts["Cookies_File"]
+    Accounts_File = Core["Accounts_File"]
+    Cookies_File = Core["Cookies_File"]
     Use_Webhooks = Webhooks["Use_Webhooks"]
 
     # Send webhook request
