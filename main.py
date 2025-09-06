@@ -44,6 +44,7 @@ Webhooks.LoadConfig(Webhook)
 Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]'
 Cookie_Banner = '//*[@id="cookie-banner-wrapper"]'
 Signup_Button = '//*[@id="signup-button"]'
+Terms_Checkbox = '//*[@id="signup-checkbox"]'
 General_Error = "//div[@id='GeneralErrorText']" 
 
 Username_Box = '//*[@id="signup-username"]'
@@ -457,6 +458,18 @@ def HasCookiePrompt(driver):
     Has_Cookies_Prompt = Core["Has_Cookies_Prompt"]
     return Has_Cookies_Prompt
 
+def CheckTermsOfUse(driver):
+    try:
+        Terms = WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.XPATH, Terms_Checkbox))
+        )
+        if not Terms.is_selected():
+            ClickButton(driver, Terms_Checkbox, Move=True)
+            Info("Clicked Terms of Use checkbox.")
+    except TimeoutException:
+        Info("Terms of Use checkbox not found.")
+        pass
+
 def GenerateAccount():
     # Initilase web driver
     driver = BrowserClient
@@ -480,6 +493,9 @@ def GenerateAccount():
 
     # Select gender
     Gender = SelectGender(driver)
+    
+    # Check and click the Terms of Use checkbox if it exists
+    CheckTermsOfUse(driver)
 
     # Request signup
     ClickButton(driver, Signup_Button)
