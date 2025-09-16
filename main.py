@@ -1,14 +1,15 @@
-#    .--.                    
-#    |   :                   
-#    |   | .-. .,-. .--. .-. 
+#    .--.
+#    |   :
+#    |   | .-. .,-. .--. .-.
 #    |   ;(.-' |   )`--.(   )
-#    '--'  `--'|`-' `--' `-' 
-#              |             
-#              '             
+#    '--'  `--'|`-' `--' `-'
+#              |
+#              '
 # Created by depso and by the help of the lord
 
 from selenium import webdriver
-from selenium.webdriver.edge.options import Options
+# MODIFICATION: Changed from Edge specific options to Chrome generic options for Brave compatibility
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
@@ -45,7 +46,7 @@ Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cook
 Cookie_Banner = '//*[@id="cookie-banner-wrapper"]'
 Signup_Button = '//*[@id="signup-button"]'
 Terms_Checkbox = '//*[@id="signup-checkbox"]'
-General_Error = "//div[@id='GeneralErrorText']" 
+General_Error = "//div[@id='GeneralErrorText']"
 
 Username_Box = '//*[@id="signup-username"]'
 Password_Box = '//*[@id="signup-password"]'
@@ -142,7 +143,7 @@ def CreateOptions():
     Language = Browser["Language"]
     Use_Nopecha = Capture["Use_Nopecha"]
 
-    # Add browser options
+    # MODIFICATION: Using webdriver.chrome.options.Options which is compatible with Brave
     options = Options()
 
     if Headless:
@@ -165,22 +166,31 @@ def CreateOptions():
     options.add_argument(f"--lang={Language}")
     options.add_argument("log-level=3")
     options.add_argument('--incognito')
-    options.add_argument('--no-sandbox') 
+    options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
 
     return options
 
-def CreateDriver():    
-    Options = CreateOptions()
+def CreateDriver():
+    # MODIFICATION: This function is completely updated for Brave on macOS
+    
+    # Get the base options from the CreateOptions function
+    options = CreateOptions()
     NOPECHA_KEY = Capture["NOPECHA_KEY"]
     Use_Nopecha = Capture["Use_Nopecha"]
 
+    # Set the path to the Brave Browser binary for macOS
+    # This is the key change to use Brave instead of Edge
+    options.binary_location = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+    
     Parameters = {
         "source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
     }
 
-    # Create driver instance
-    driver = webdriver.Edge(options = Options)
+    # Create a Chrome driver instance, as Brave is Chromium-based.
+    # IMPORTANT: You must have chromedriver installed and in your system's PATH.
+    # You can install it with Homebrew: `brew install --cask chromedriver`
+    driver = webdriver.Chrome(options = options)
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", Parameters)
 
     # Set Nopecha key
@@ -188,6 +198,7 @@ def CreateDriver():
         SetNopechaKey(driver, NOPECHA_KEY)
 
     return driver
+
 
 def CheckDriver(driver):
     if not driver:
@@ -364,7 +375,7 @@ def ClearValue(Element):
     if MacOS:
         Control = Keys.COMMAND
 
-    Element.send_keys(Control + "a") 
+    Element.send_keys(Control + "a")
     Element.send_keys(Keys.BACKSPACE)
 
 def EnterUsername(driver):

@@ -1,38 +1,77 @@
+# --------------------------------------
+# Depso's Roblox Account Generator Config
+# --------------------------------------
+
+# Core settings for the generator's main functionality
 Core:
+  # MODIFICATION: Set to true because you are running on macOS.
+  # This makes the script use the COMMAND key instead of CONTROL for shortcuts.
+  MacOS: true
+
+  # Set to true if you are in a region (like Europe) that shows a cookie consent banner.
+  # It's safer to leave this as true.
+  Has_Cookies_Prompt: true
+
+  # File paths for storing generated account details
   Accounts_File: "accounts.txt"
   Cookies_File: "cookies.txt"
+
+  # The total number of accounts you want to generate
   Accounts_To_Create: 5
-  Request_Limit_Wait_Minutes: 50
-  MacOS: False # (REQUIRED)
-  Has_Cookies_Prompt: True # (REQUIRED) Only set to true if you live in europe
 
+  # How many minutes to wait if Roblox rate-limits you (throws a creation timeout)
+  Request_Limit_Wait_Minutes: 10
+
+# Settings related to the web browser automation
 Browser:
-  Headless: False
-  Use_Proxy: False
-  Proxy: "http://1.1.1.1/"
-  Language: "en-US" # ISO 639 language code
+  # Set to true to run the browser in the background without a visible window.
+  # Recommended to keep as false initially to see if it's working correctly.
+  Headless: false
 
+  # Proxy settings
+  Use_Proxy: false
+  Proxy: "http://user:pass@host:port" # Example: "http://myproxy:1234"
+
+  # Language setting for the browser
+  Language: "en-US"
+
+# Settings for handling CAPTCHA challenges
 Capture:
-  NOPECHA_KEY: "-------"
-  Use_Nopecha: False
-  Allow_Manual_Completion: True
-  Capture_Timeout_Minutes: 4
+  # Set to true to use the NopeCHA extension to automatically solve captchas.
+  # You must provide your API key below if you enable this.
+  Use_Nopecha: false
+  NOPECHA_KEY: "" # Your NopeCHA API key goes here
 
+  # If automatic solving is disabled or fails, set to true to allow time for you to solve it manually.
+  Allow_Manual_Completion: true
+
+  # How many minutes to wait for a CAPTCHA to be solved (manually or automatically)
+  Capture_Timeout_Minutes: 5
+
+# Settings for the Roblox accounts to be created
 Accounts:
-  Random_Password: True
-  Fixed_Password: "depsoisgreat"
+  # Set to true to generate a strong, random password for each account.
+  Random_Password: true
+  # If Random_Password is false, the script will use this password for all accounts.
+  Fixed_Password: "YourSecurePassword123!"
 
-  Use_Username_Base: False # Otherwise uses username generation
-  Username_Base: "ilovedepso_"
+  # Set to true to use a specific base for usernames (e.g., "MyCoolBase" -> "MyCoolBase1xY9z").
+  # If false, it will generate usernames from random words.
+  Use_Username_Base: false
+  Username_Base: "YourUsernameBase"
 
+# Settings for Discord webhook notifications (optional)
 Webhook:
-  Use_Webhooks: False
-  Webhook_Urls: [
-    "https://discord.com/api/webhooks/....",
-  ]
+  # Set to true to send a notification to Discord when an account is created.
+  Use_Webhooks: false
+  # A list of your Discord webhook URLs. You can add more than one.
+  Webhook_Urls:
+    - ""
+    - ""
 
+  # Configuration for the appearance of the webhook embed message
   Embed:
-    Title: "Account generated!"
-    Description: ""
-    Color: "E4824C" # HEX color
-    Inline: False
+    Title: "✅ Account Generated!"
+    Description: "A new Roblox account has been successfully created."
+    Color: "00ff00" # Hex color code (e.g., "ff0000" for red)
+    Inline: true
