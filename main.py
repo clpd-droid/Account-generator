@@ -7,8 +7,14 @@
 #              '
 # Created by depso and by the help of the lord
 
+# --- GUI and Threading Imports ---
+import tkinter as tk
+from tkinter import scrolledtext
+import threading
+import sys
+# ---------------------------------
+
 from selenium import webdriver
-# MODIFICATION: Changed from Edge specific options to Chrome generic options for Brave compatibility
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -19,7 +25,7 @@ from selenium.webdriver.common.keys import Keys
 
 from random import choice as randchoice, randint, randrange
 from time import sleep
-from colorama import Fore
+from colorama import Fore, init
 
 from modules import Usernames
 from modules import Webhooks
@@ -28,543 +34,268 @@ import requests
 import os
 import yaml
 
-# Load configuation file
-with open('config.yml', 'r') as f:
-    Config = yaml.safe_load(f)
+# Initialize colorama
+init()
 
-# Unpack Config
-Core = Config["Core"]
-Browser = Config["Browser"]
-Capture = Config["Capture"]
-Accounts = Config["Accounts"]
-Webhook = Config["Webhook"]
+# --- Main Application Class with GUI ---
+class AccountGeneratorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Roblox Account Generator")
+        self.root.geometry("700x500")
+        self.root.configure(bg='black')
 
-Webhooks.LoadConfig(Webhook)
+        self.is_running = False
+        self.generator_thread = None
+        self.BrowserClient = None
 
-# Website buttons
-Accept_All = '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]'
-Cookie_Banner = '//*[@id="cookie-banner-wrapper"]'
-Signup_Button = '//*[@id="signup-button"]'
-Terms_Checkbox = '//*[@id="signup-checkbox"]'
-General_Error = "//div[@id='GeneralErrorText']"
+        # --- Load Configuration ---
+        with open('config.yml', 'r') as f:
+            self.Config = yaml.safe_load(f)
+        self.Core = self.Config["Core"]
+        self.Browser = self.Config["Browser"]
+        self.Capture = self.Config["Capture"]
+        self.Accounts = self.Config["Accounts"]
+        self.Webhook = self.Config["Webhook"]
+        Webhooks.LoadConfig(self.Webhook)
+        # ---------------------------
 
-Username_Box = '//*[@id="signup-username"]'
-Password_Box = '//*[@id="signup-password"]'
-Details_Error = "//p[@id='signup-usernameInputValidation']"
+        # --- GUI Widgets ---
+        self.log_area = scrolledtext.ScrolledText(root, state='disabled', bg='black', fg='white', font=("Consolas", 10))
+        self.log_area.pack(pady=10, padx=10, expand=True, fill='both')
 
-Male_Gender = "//button[@id='MaleButton']"
-Female_Gender = "//button[@id='FemaleButton']"
+        button_frame = tk.Frame(root, bg='black')
+        button_frame.pack(pady=10, fill='x')
 
-Month_Dropdown = '//*[@id="MonthDropdown"]'
-Day_Dropdown = '//*[@id="DayDropdown"]'
-Year_Dropdown = '//*[@id="YearDropdown"]'
+        self.start_button = tk.Button(button_frame, text="Start Generator", command=self.start_generator, bg='green', fg='white', width=20)
+        self.start_button.pack(side='left', padx=(20, 10), expand=True)
 
-Arkose_iFrame = "arkose-iframe"
-Enforcement_Frame = '[data-e2e="enforcement-frame"]'
-Game_Core_Frame = "game-core-frame"
-Verify_Button = '//*[@data-theme="home.verifyButton"]'
-Method_Title = '//*[contains(@class, "sc-1io4bok-0") and contains(@class, "text")]'
+        self.stop_button = tk.Button(button_frame, text="Stop Generator", command=self.stop_generator, bg='red', fg='white', width=20, state='disabled')
+        self.stop_button.pack(side='right', padx=(10, 20), expand=True)
+        # -------------------
 
-Profile_Options = "//button[@id='popover-link']"
-Follow_User = "//a[contains(text(),'Follow') and @role='menuitem']"
+        # Redirect stdout to the log area
+        sys.stdout = self.RedirectText(self)
 
-BrowserClient = None
+    class RedirectText:
+        def __init__(self, app_instance):
+            self.app_instance = app_instance
 
-def MakePassword():
-    Random_Password = Accounts["Random_Password"]
-    Fixed_Password = Accounts["Fixed_Password"]
+        def write(self, string):
+            self.app_instance.log_area.config(state='normal')
+            self.app_instance.log_area.insert(tk.END, string)
+            self.app_instance.log_area.see(tk.END)
+            self.app_instance.log_area.config(state='disabled')
 
-    if Random_Password:
-        return Usernames.RandomString(10, 20)
-    else:
-        return Fixed_Password
+        def flush(self):
+            pass
 
-def MakeUsername():
-    Use_Username_Base = Accounts["Use_Username_Base"]
-    Username_Base = Accounts["Username_Base"]
-    Username = None
+    def start_generator(self):
+        self.is_running = True
+        self.start_button.config(state='disabled')
+        self.stop_button.config(state='normal')
+        self.generator_thread = threading.Thread(target=self.Generation, daemon=True)
+        self.generator_thread.start()
 
-    while True:
-        # Generate username string
-        if Use_Username_Base:
-            Username = Usernames.MakeRandomUsername(Username_Base)
+    def stop_generator(self):
+        print(f"{Fore.RED}--- STOP SIGNAL RECEIVED --- Will stop after the current attempt.{Fore.RESET}")
+        self.is_running = False
+        self.stop_button.config(state='disabled')
+        # The start button will be re-enabled when the thread fully stops.
+
+    # --- All generator functions are now methods of the class ---
+
+    def MakePassword(self):
+        Random_Password = self.Accounts["Random_Password"]
+        Fixed_Password = self.Accounts["Fixed_Password"]
+        return Usernames.RandomString(10, 20) if Random_Password else Fixed_Password
+
+    def MakeUsername(self):
+        Use_Username_Base = self.Accounts["Use_Username_Base"]
+        Username_Base = self.Accounts["Username_Base"]
+        while True:
+            Username = Usernames.MakeRandomUsername(Username_Base) if Use_Username_Base else Usernames.MakeWordedUsername()
+            if Usernames.UsernameAllowed(Username):
+                return Username
+
+    def ResetDriver(self, driver):
+        driver.delete_all_cookies()
+
+    def ClickButton(self, driver, Xpath, Move=False):
+        try:
+            Button = WebDriverWait(driver, 40).until(EC.presence_of_element_located((By.XPATH, Xpath)))
+        except:
+            Button = driver.find_element(By.XPATH, Xpath)
+        if Move:
+            ActionChains(driver).move_to_element(Button).click().perform()
         else:
-            Username = Usernames.MakeWordedUsername()
+            Button.click()
+        return Button
 
-        # Check if username is approved by Roblox
-        if Usernames.UsernameAllowed(Username):
-            break
+    def SelectDropdown(self, driver, Xpath, Min, Max):
+        Index = randint(Min, Max)
+        Option_Xpath = f"{Xpath}/option[{Index}]"
+        self.ClickButton(driver, Xpath)
+        self.ClickButton(driver, Option_Xpath)
 
-    return Username
+    def SetBirthDay(self, driver):
+        self.SelectDropdown(driver, '//*[@id="MonthDropdown"]', 1, 12)
+        self.SelectDropdown(driver, '//*[@id="DayDropdown"]', 1, 20)
+        self.SelectDropdown(driver, '//*[@id="YearDropdown"]', 24, 37)
 
-def FlushConsole():
-    Is_Windows = os.name == 'nt'
-    os.system('cls' if Is_Windows else 'clear')
+    def CreateOptions(self):
+        options = Options()
+        if self.Browser["Headless"]: options.add_argument("--headless")
+        if self.Browser["Use_Proxy"]: options.add_argument(f"--proxy-server={self.Browser['Proxy']}")
+        if self.Capture["Use_Nopecha"]:
+            Extention_Path = "extra/ext.crx"
+            with open(Extention_Path, 'wb+') as f: f.write(requests.get('https://nopecha.com/f/ext.crx').content)
+            options.add_extension(Extention_Path)
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_argument(f"--lang={self.Browser['Language']}")
+        options.add_argument("log-level=3")
+        options.add_argument('--incognito')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        return options
 
-def ResetDriver(driver):
-    driver.delete_all_cookies()
-    #driver.quit()
- 
-def ClickButton(driver, Xpath, Move=False):
-    try:
-        Button = WebDriverWait(driver, 40).until(
-            EC.presence_of_element_located((By.XPATH, Xpath))
-        )
-    except:
-        Button = driver.find_element(By.XPATH, Xpath)
-
-    if Move:
-        Actions = ActionChains(driver)
-        Actions.move_to_element(Button)
-        Actions.click().perform()
-        Actions.reset_actions()
-    else:
-        Button.click()
-
-    return Button
-
-def SelectDropdown(driver, Xpath, Min, Max):
-    Index = randint(Min, Max)
-    Ending = "/option[{0}]"
-    Option_Xpath = f"{Xpath}{Ending.format(Index)}"
-
-    ClickButton(driver, Xpath)
-    ClickButton(driver, Option_Xpath)
-
-def SetBirthDay(driver):
-    SelectDropdown(driver, Month_Dropdown, 1, 12)
-    SelectDropdown(driver, Day_Dropdown, 1, 20)
-    SelectDropdown(driver, Year_Dropdown, 24, 37)
-
-def CreateOptions():
-    Headless = Browser["Headless"]
-    Use_Proxy = Browser["Use_Proxy"]
-    Proxy_Address = Browser["Proxy"]
-    Language = Browser["Language"]
-    Use_Nopecha = Capture["Use_Nopecha"]
-
-    # MODIFICATION: Using webdriver.chrome.options.Options which is compatible with Brave
-    options = Options()
-
-    if Headless:
-        options.add_argument("--headless")
+    def CreateDriver(self):
+        options = self.CreateOptions()
+        # MODIFICATION: Use Brave Browser on macOS
+        options.binary_location = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+        driver = webdriver.Chrome(options=options)
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"})
+        if self.Capture["Use_Nopecha"]: self.SetNopechaKey(driver, self.Capture["NOPECHA_KEY"])
+        return driver
     
-    if Use_Proxy:
-        options.add_argument(f"--proxy-server={Proxy_Address}")
-
-    # Install nopecha extention
-    Extention_Path = "extra/ext.crx"
-    if Use_Nopecha:
-        with open(Extention_Path, 'wb+') as f:
-            request = requests.get('https://nopecha.com/f/ext.crx')
-            f.write(request.content)
-
-        options.add_extension(Extention_Path)
-
-    # Addional options
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    options.add_argument(f"--lang={Language}")
-    options.add_argument("log-level=3")
-    options.add_argument('--incognito')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
-    return options
-
-def CreateDriver():
-    # MODIFICATION: This function is completely updated for Brave on macOS
-    
-    # Get the base options from the CreateOptions function
-    options = CreateOptions()
-    NOPECHA_KEY = Capture["NOPECHA_KEY"]
-    Use_Nopecha = Capture["Use_Nopecha"]
-
-    # Set the path to the Brave Browser binary for macOS
-    # This is the key change to use Brave instead of Edge
-    options.binary_location = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
-    
-    Parameters = {
-        "source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
-    }
-
-    # Create a Chrome driver instance, as Brave is Chromium-based.
-    # IMPORTANT: You must have chromedriver installed and in your system's PATH.
-    # You can install it with Homebrew: `brew install --cask chromedriver`
-    driver = webdriver.Chrome(options = options)
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", Parameters)
-
-    # Set Nopecha key
-    if Use_Nopecha:
-        SetNopechaKey(driver, NOPECHA_KEY)
-
-    return driver
-
-
-def CheckDriver(driver):
-    if not driver:
-        driver = CreateDriver()
-    
-    return driver
-
-def SetNopechaKey(driver, Key):
-    driver.get(f"https://nopecha.com/setup#{Key}")
-    sleep(1)
-    driver.get(f"https://nopecha.com/setup#{Key}")
-
-def ColoredPrint(Text="", Color=Fore.WHITE, End="\n"):
-    print(f"{Color}{Text}{Fore.RESET}", end=End)
-
-def ColoredPrints(Seperator, Lines):
-    for Line in Lines:
-        ColoredPrint(*Line, End=Seperator)
-    print()
-
-def Error(Text, End=None):
-    ColoredPrint(f"Error: {Fore.LIGHTCYAN_EX}{Text}", Fore.LIGHTRED_EX, End)
-
-def Info(Text, End=None):
-    ColoredPrint(Text, Fore.LIGHTYELLOW_EX, End)
-    
-def Success(Text, End=None):
-    ColoredPrint(Text, Fore.GREEN, End)
-
-def PrintUserAndPass(Username, Password, Gender):
-    ColoredPrints(" ", [
-        ("Username:", Fore.WHITE),
-        (Username, Fore.GREEN),
-        ("Password:", Fore.WHITE),
-        (Password, Fore.RED),
-        ("Gender:", Fore.WHITE),
-        (Gender, Fore.MAGENTA)
-    ])
-
-# Makes a list of fake accounts used for screenshots, you're welcome
-def ConsoleExample():
-    for i in range(1, 50):
-        PrintUserAndPass(MakeUsername(), MakePassword(), "Male")
-
-def Timeout(Seconds):
-    Remaining = Seconds
-
-    while Remaining > 0:
-        Mins, Secs = divmod(Remaining, 60)
-
-        Info(f"Time Remaining: {Mins:f}:{Secs:f}", end="\r")
-        
-        Remaining -= 1
+    def SetNopechaKey(self, driver, Key):
+        driver.get(f"https://nopecha.com/setup#{Key}")
         sleep(1)
 
-def RequestLimitWait():
-    Wait_Minutes = Core["Request_Limit_Wait_Minutes"]
-    Seconds = Wait_Minutes / 60
+    def LogDetails(self, Username, Password, Cookie):
+        if self.Webhook["Use_Webhooks"]: Webhooks.SendWebhook({"Username": Username, "Password": Password})
+        with open(self.Core["Accounts_File"], "a") as f: f.write(f"{Username} : {Password}\n")
+        with open(self.Core["Cookies_File"], "a") as f: f.write(f"{Cookie}\n")
 
-    Error("Rate Limit!")
-    Timeout(Seconds)
+    def EnterValue(self, driver, Xpath, Text, Clear=False):
+        TextBox = self.ClickButton(driver, Xpath)
+        if Clear: self.ClearValue(TextBox)
+        TextBox.send_keys(Text)
 
-def LogDetails(Username, Password, Cookie):
-    Accounts_File = Core["Accounts_File"]
-    Cookies_File = Core["Cookies_File"]
-    Use_Webhooks = Webhook["Use_Webhooks"]
+    def ClearValue(self, Element):
+        Control = Keys.COMMAND if self.Core["MacOS"] else Keys.CONTROL
+        Element.send_keys(Control + "a")
+        Element.send_keys(Keys.BACKSPACE)
 
-    # Send webhook request
-    if Use_Webhooks:
-        Webhooks.SendWebhook({
-            "Username": Username,
-            "Password": Password
-        })
+    def Username_Birthday_Loop(self, driver):
+        while self.is_running:
+            Username = self.MakeUsername()
+            self.EnterValue(driver, '//*[@id="signup-username"]', Username, True)
+            sleep(2)
+            Error_Message = driver.find_element(By.XPATH, "//p[@id='signup-usernameInputValidation']").text
+            if "birthday" in Error_Message.lower():
+                self.SetBirthDay(driver)
+                continue
+            if len(Error_Message) < 3: return Username
+        return None
 
-    # Write password and username for the generated account
-    with open(Accounts_File, "a") as f:
-        f.write(f"{Username} : {Password}\n")
-        f.close()
-
-    # Write cookie for the generated account
-    with open(Cookies_File, "a") as f:
-        f.write(f"{Cookie}\n")
-        f.close()
-
-# This only solves one type of captura
-def SolveCapture(driver):
-    # Select correct iframe
-    Arkose = driver.find_element(By.ID, Arkose_iFrame)
-    driver.switch_to.frame(Arkose)
-    Enforcement = driver.find_element(By.CSS_SELECTOR, Enforcement_Frame)
-    driver.switch_to.frame(Enforcement)
-    Game_Core = driver.find_element(By.ID, Game_Core_Frame)
-    driver.switch_to.frame(Game_Core)
-    
-    ClickButton(driver, Verify_Button)
-    sleep(1)
-
-    # Get capture method name
-    Method = driver.find_element(By.XPATH, Method_Title).text
-    Info(f"Capture method: {Method}")
-
-    # Solve methods
-    if "Pick any square" in Method:
-        #Square = driver.find_element(By.CSS_SELECTOR, f'[aria-label="Image {randint(1,6)} of 6."]')
-        #Square.click()
-        ClickButton(driver, f"//*[@aria-label='Image {randint(1,6)} of 6.']")
-    else:
-        Error("No solve for this capture method!")
-        return True
-    
-    #key-frame-image
-    
-    driver.switch_to.default_content()
-    sleep(5)
-    #WebDriverWait(driver, 60).until_not(EC.presence_of_element_located((By.ID, Arkose_iFrame)))
-
-    return False
-
-def CaptureCheck(driver):
-    Manual = Capture["Allow_Manual_Completion"]
-    Minutes = Capture["Capture_Timeout_Minutes"]
-    Seconds = 60 * Minutes
-
-    # Attempt automatic solve
-    try:
-        Failed = SolveCapture(driver)
-        if not Failed:
-            Info("Capture solved!")
-            return True
-    except Exception as e:
-        #Error(e)
-        pass
-
-    # Prompt user to solve capture if enabled
-    if Manual:
-        Info(f"Waiting for manual capture competion! ({Minutes}) minutes maxium!")
-
-        Completed = WaitForCreation(driver, Seconds)
-        if Completed:
-            return True
-
-    # Capture solve failed
-    Error("Program will now sleep")
-    Timeout(Seconds)
-
-    return False
-
-def SelectGender(driver):
-    Gender = randint(1,3)
-    Gender_Name = "None"
-
-    if Gender == 1: # Male
-        ClickButton(driver, Male_Gender)
-        Gender_Name = "Male"
-    elif Gender == 2: # Female
-        ClickButton(driver, Female_Gender)
-        Gender_Name = "Female"
-
-    return Gender_Name
-
-def EnterValue(driver, Xpath, Text, Clear=False):
-    TextBox = ClickButton(driver, Xpath)
-
-    if Clear:
-        ClearValue(TextBox)
-    
-    TextBox.send_keys(Text)
-
-def ClearValue(Element):
-    MacOS = Core["MacOS"]
-    Control = Keys.CONTROL
-
-    # COMMAND instead of CONTROL for Mac
-    if MacOS:
-        Control = Keys.COMMAND
-
-    Element.send_keys(Control + "a")
-    Element.send_keys(Keys.BACKSPACE)
-
-def EnterUsername(driver):
-    Username = MakeUsername()
-    EnterValue(driver, Username_Box, Username, True)
-
-    return Username
-
-def EnterPassword(driver):
-    Password = MakePassword()
-    EnterValue(driver, Password_Box, Password, True)
-
-    return Password
-
-def Username_Birthday_Loop(driver):
-    while True:
-        Username = EnterUsername(driver)
-
-        sleep(2)
-        Error_Message = driver.find_element(By.XPATH, Details_Error).text
-
-        # Check birthday
-        if "birthday" in Error_Message.lower():
-            SetBirthDay(driver)
-            continue
-        
-        # Error check
-        if len(Error_Message) < 3:
-            return Username
-        
-def WaitForUrl(driver, Timeout, Url):
-    try:
-        WebDriverWait(driver, Timeout).until(
-            EC.url_contains(Url)
-        )
-        return True
-    except TimeoutException:
-        return False
-
-def CheckForError(driver):
-    try:
-        Message = driver.find_element(By.XPATH, General_Error)
-        if "An unknown error occurred" in Message.text:
-            return True
-    except:
-        pass
-
-    return False
-
-def FollowUser(driver, UserId):
-    Profile_Url = f"https://www.roblox.com/users/{UserId}/profile"
-    driver.get(Profile_Url)
-
-    # Accept cookies prompt (Again??!)
-    if HasCookiePrompt(driver):
-        ClickButton(driver, Accept_All, True)
-
-    # Follow user
-    ClickButton(driver, Profile_Options)
-    sleep(1)
-    ClickButton(driver, Follow_User)
-
-    # Check for capture prompts
-    sleep(5)
-    CaptureCheck(driver)
-
-def ProblemCheck(driver):
-    Use_Nopecha = Capture["Use_Nopecha"]
-
-    # Capture test
-    if not Use_Nopecha:
-        Capture_Success = CaptureCheck(driver)
-        if not Capture_Success:
-            return False
-        
-    # Apon request limit
-    Has_Error = CheckForError(driver)
-    if Has_Error:
-        RequestLimitWait()
-        return False
-        
-    return True
-
-def WaitForCreation(driver, Timeout):
-    Success_Url = "www.roblox.com/home"
-    Created = WaitForUrl(driver, Timeout, Success_Url)
-
-    return Created
-
-def HasCookiePrompt(driver):
-    Has_Cookies_Prompt = Core["Has_Cookies_Prompt"]
-    return Has_Cookies_Prompt
-
-def CheckTermsOfUse(driver):
-    try:
-        Terms = WebDriverWait(driver, 2).until(
-            EC.presence_of_element_located((By.XPATH, Terms_Checkbox))
-        )
-        if not Terms.is_selected():
-            ClickButton(driver, Terms_Checkbox, Move=True)
-            Info("Clicked Terms of Use checkbox.")
-    except TimeoutException:
-        Info("Terms of Use checkbox not found.")
-        pass
-
-def GenerateAccount():
-    # Initilase web driver
-    driver = BrowserClient
-    ResetDriver(driver)
-
-    # Goto signup page
-    driver.get("https://www.roblox.com")
-
-    # Accept all cookes (without your consent muhahaha... or not)
-    if HasCookiePrompt(driver):
-        ClickButton(driver, Accept_All, True)
-    
-    # Set birthday
-    SetBirthDay(driver)
-
-    # Username and birthday entry
-    Username = Username_Birthday_Loop(driver)
-
-    # Password entry
-    Password = EnterPassword(driver)
-
-    # Select gender
-    Gender = SelectGender(driver)
-    
-    # Check and click the Terms of Use checkbox if it exists
-    CheckTermsOfUse(driver)
-
-    # Request signup
-    ClickButton(driver, Signup_Button)
-
-    # Wait for successful creation
-    Created = WaitForCreation(driver, 8)
-    
-    if not Created:
-        Info("Creation timeout.. Checking for problems")
-        Resolved = ProblemCheck(driver)
-
-        if not Resolved:
-            Error("Account creation failed! Capture/rate-limit error!")
-            ResetDriver(driver)
-            return
-        
-        Created = WaitForCreation(driver, 60)
-        if not Created:
-            Error("Account creation failed! Exceeded timeout")
-            return
-
-    # Success!
-    PrintUserAndPass(Username, Password, Gender)
-
-    # Append account creation details to file
-    Cookie = driver.get_cookie(".ROBLOSECURITY")["value"]
-    LogDetails(Username, Password, Cookie)
-
-    #FollowUser(driver, 0)
-
-    return Username, Password, Cookie
-
-def Banner():
-    FlushConsole()
-    Info("Depso's Roblox account generator")
-
-def Generation():
-    global BrowserClient
-    Create_Count = Core["Accounts_To_Create"]
-
-    # Creation loop
-    for i in range(1, Create_Count):
+    def CheckTermsOfUse(self, driver):
         try:
-            BrowserClient = CheckDriver(BrowserClient)
-            GenerateAccount()
-        except WebDriverException:
-            Info("Window closed! Now exiting...")
-            break
-        except Exception as e:
-            BrowserClient = None
-            Error(e)
+            Terms = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.XPATH, '//*[@id="signup-checkbox"]')))
+            if not Terms.is_selected(): self.ClickButton(driver, '//*[@id="signup-checkbox"]', Move=True)
+            print(f"{Fore.YELLOW}Clicked Terms of Use checkbox.{Fore.RESET}")
+        except TimeoutException: pass
 
-    Success("Job finished!")
+    def WaitForCreation(self, driver, Timeout):
+        try:
+            WebDriverWait(driver, Timeout).until(EC.url_contains("www.roblox.com/home"))
+            return True
+        except TimeoutException:
+            return False
+
+    def ProblemCheck(self, driver):
+        try: # CAPTCHA Check
+            if self.Capture["Allow_Manual_Completion"]:
+                print(f"{Fore.YELLOW}Waiting for manual CAPTCHA completion...{Fore.RESET}")
+                if self.WaitForCreation(driver, self.Capture["Capture_Timeout_Minutes"] * 60):
+                    return True
+        except Exception: pass
+        try: # Error check
+            if "An unknown error occurred" in driver.find_element(By.XPATH, "//div[@id='GeneralErrorText']").text:
+                print(f"{Fore.RED}Rate limit hit! Waiting...{Fore.RESET}")
+                sleep(self.Core["Request_Limit_Wait_Minutes"] * 60)
+                return False
+        except Exception: pass
+        return True
+
+    def GenerateAccount(self):
+        # Initilase web driver
+        self.ResetDriver(self.BrowserClient)
+        self.BrowserClient.get("https://www.roblox.com")
+        if self.Core["Has_Cookies_Prompt"]: self.ClickButton(self.BrowserClient, '//button[contains(@class, "btn-cta-lg") and contains(@class, "cookie-btn")]', True)
+        
+        self.SetBirthDay(self.BrowserClient)
+        Username = self.Username_Birthday_Loop(self.BrowserClient)
+        if not Username: return # Stopped by user
+
+        Password = self.MakePassword()
+        self.EnterValue(self.BrowserClient, '//*[@id="signup-password"]', Password, True)
+        
+        Gender = "Male" if randint(1, 2) == 1 else "Female"
+        self.ClickButton(self.BrowserClient, f"//button[@id='{Gender}Button']")
+        
+        self.CheckTermsOfUse(self.BrowserClient)
+        self.ClickButton(self.BrowserClient, '//*[@id="signup-button"]')
+        
+        Created = self.WaitForCreation(self.BrowserClient, 8)
+        if not Created:
+            print(f"{Fore.YELLOW}Creation timeout.. Checking for problems.{Fore.RESET}")
+            if not self.ProblemCheck(self.BrowserClient):
+                print(f"{Fore.RED}Account creation failed! Capture/rate-limit error!{Fore.RESET}")
+                self.ResetDriver(self.BrowserClient)
+                return
+            if not self.WaitForCreation(self.BrowserClient, 60):
+                print(f"{Fore.RED}Account creation failed! Exceeded timeout.{Fore.RESET}")
+                return
+
+        print(f"{Fore.GREEN}Success! {Fore.WHITE}User: {Fore.CYAN}{Username}{Fore.WHITE}, Pass: {Fore.CYAN}{Password}{Fore.WHITE}, Gender: {Fore.CYAN}{Gender}{Fore.RESET}")
+        Cookie = self.BrowserClient.get_cookie(".ROBLOSECURITY")["value"]
+        self.LogDetails(Username, Password, Cookie)
+
+    def Generation(self):
+        Create_Count = self.Core["Accounts_To_Create"]
+        print(f"{Fore.CYAN}--- Depso's Roblox Account Generator ---{Fore.RESET}")
+
+        for i in range(1, Create_Count + 1):
+            if not self.is_running: break
+            print(f"\n{Fore.MAGENTA}--- Generating Account #{i} of {Create_Count} ---{Fore.RESET}")
+            try:
+                if not self.BrowserClient: self.BrowserClient = self.CreateDriver()
+                self.GenerateAccount()
+            except WebDriverException:
+                print(f"{Fore.RED}Browser window was closed! Stopping generator...{Fore.RESET}")
+                break
+            except Exception as e:
+                print(f"{Fore.RED}An unexpected error occurred: {e}{Fore.RESET}")
+                if self.BrowserClient:
+                    self.BrowserClient.quit()
+                    self.BrowserClient = None
+                sleep(5) # Wait before retrying
+        
+        # --- Cleanup after loop ---
+        if self.is_running:
+             print(f"\n{Fore.GREEN}--- Job Finished! ---{Fore.RESET}")
+        else:
+             print(f"\n{Fore.RED}--- Generator Stopped ---{Fore.RESET}")
+
+        self.is_running = False
+        self.start_button.config(state='normal')
+        self.stop_button.config(state='disabled')
+        if self.BrowserClient:
+            self.BrowserClient.quit()
+            self.BrowserClient = None
 
 if __name__ == "__main__":
-    Banner()
-    Generation()
-
-    print("Press enter to exit...")
-    input()
-    exit(1)
+    root = tk.Tk()
+    app = AccountGeneratorApp(root)
+    root.mainloop()
